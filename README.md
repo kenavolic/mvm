@@ -1,5 +1,7 @@
 # Mvm
 
+[![Build Status](https://travis-ci.org/kenavolic/mvm.svg?branch=master)](https://travis-ci.org/kenavolic/mvm)
+
 Mvm (meta virtual machine) is a POC library to generate simple stack-based virtual machine from static
 description. The descriptive model mimics boost msm one.
 
