@@ -24,7 +24,10 @@ namespace mvm {
 namespace detail {
 // unknown instruction is a dummy instr used for
 // handling instr from set size to 256
-struct unknown_i {};
+struct unknown_i 
+{
+  static constexpr char const* const name = "???";
+};
 
 template <typename T> struct stack_elements;
 

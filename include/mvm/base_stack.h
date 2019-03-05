@@ -17,50 +17,33 @@
 #include <variant>
 #include <vector>
 
+#include "mvm/except.h"
 #include "mvm/helpers/list.h"
 
 namespace mvm {
-namespace detail {
+namespace traits {
+  
 template <typename TypeList, std::size_t = list::size_v<TypeList>>
-class vstack_impl {
+struct vstack_traits {
+
   using value_type = list::rebind_t<std::variant, TypeList>;
-  std::vector<value_type> m_stack;
+  using stack_type = std::vector<value_type>;
 
-public:
-  ///
-  /// @brief Push data to the stack
-  ///
-  template <typename T> void push(T &&val) {
-    m_stack.push_back(value_type{std::forward<T>(val)});
-  }
-
-  ///
-  /// @brief Pop data from the stack
-  ///
-  template <typename T> T pop() {
-    auto val = m_stack.back();
-    m_stack.pop_back();
-    return std::get<T>(val);
+  template <typename T>
+  static auto get_val(value_type&& val)
+  {
+    return std::get<T>(std::forward<value_type>(val));
   }
 };
 
-template <typename TypeList> class vstack_impl<TypeList, 1> {
-  std::vector<list::front_t<TypeList>> m_stack;
+template <typename TypeList> 
+struct vstack_traits<TypeList, 1> {
+  using value_type = list::front_t<TypeList>;
+  using stack_type = std::vector<value_type>;
 
-public:
-  ///
-  /// @brief Push data to the stack
-  ///
-  template <typename T> void push(T &&val) {
-    m_stack.push_back(std::forward<T>(val));
-  }
-
-  ///
-  /// @brief Pop data from the stack
-  ///
-  template <typename T> T pop() {
-    auto val = m_stack.back();
-    m_stack.pop_back();
+  template <typename T>
+  static auto get_val(T val)
+  {
     return val;
   }
 };
@@ -71,5 +54,31 @@ public:
 /// @brief Heterogenerous value stack
 ///
 template <typename TypeList>
-class vstack : public detail::vstack_impl<TypeList> {};
+class vstack 
+{
+  using vstack_traits = traits::vstack_traits<TypeList>;
+  using value_type = typename vstack_traits::value_type;
+  using stack_type = typename vstack_traits::stack_type;
+  stack_type m_stack;
+  public:
+    ///
+    /// @brief Push data to the stack
+    ///
+    template <typename T> void push(T &&val) {
+      m_stack.push_back(value_type{std::forward<T>(val)});
+    }
+
+    ///
+    /// @brief Pop data from the stack
+    ///
+    template <typename T> T pop() {
+      if (m_stack.empty())
+      {
+        throw mexcept("[-][mvm] try to pop from empty stack", status_type::POP_EMPTY_STACK);
+      }
+      auto val = m_stack.back();
+      m_stack.pop_back();
+      return vstack_traits::template get_val<T>(std::move(val));
+    }
+};
 } // namespace mvm

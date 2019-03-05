@@ -28,7 +28,7 @@ struct test_instr_set : instr_set<test_instr_set> {
 
   // a
   instr_ret_t<stack_producer<ui32>> spsccc(stack_consumer<ui32> const &arg1,
-                                           code_consumer<ui32> const &arg2) {
+                                           code_consumer<ui32, ui32> const &arg2) {
     call_stack.push_back(0);
     return update_stack(stack_at<0>(arg1) + code_at<0>(arg2));
   }
@@ -78,7 +78,7 @@ struct test_instr_set : instr_set<test_instr_set> {
   // instruction table
   using instr_table = list::mplist<
       i_spsccc_row<stack_producer<ui32>, stack_consumer<ui32>,
-                   code_consumer<ui32>, &test_instr_set::spsccc,
+                   code_consumer<ui32, ui32>, &test_instr_set::spsccc,
                    MVM_CHAR_LIST(2, a)>,
       i_spsc_row<stack_producer<ui32>, stack_consumer<ui32>,
                  &test_instr_set::spsc, MVM_CHAR_LIST(2, b)>,

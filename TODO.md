@@ -10,6 +10,7 @@
 # Improvements
 
 * better unit test coverage
+* Resilience to bad inputs
 * better parsing/serialization of numeric values
     + efficiency
     + add support for special floating numbers (NaN, infinity)
