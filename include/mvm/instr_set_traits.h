@@ -22,12 +22,6 @@
 
 namespace mvm {
 namespace detail {
-// unknown instruction is a dummy instr used for
-// handling instr from set size to 256
-struct unknown_i 
-{
-  static constexpr char const* const name = "???";
-};
 
 template <typename T> struct stack_elements;
 
@@ -102,28 +96,28 @@ template <typename Set> struct instr_set_traits_impl {
   using set_type = Set;
 
   // Defined instr set
-  using instr_set_type = typename set_type::instr_table;
-
-  // Extended instr set to fill set up to 256 instr
-  using ext_instr_set_type = list::fill_t<256, unknown_i, instr_set_type>;
+  using instr_set_desc_type = typename set_type::instr_table;
 
   // List of possible stack value types generated from instructions that
   // produces data from the stack
-  using stack_list_type = typename stack_types_finder<instr_set_type>::type;
+  using stack_list_type =
+      typename stack_types_finder<instr_set_desc_type>::type;
 
   // Endianness of byte code value
   using endian_type = typename set_type::endian_type;
 
-  static constexpr std::size_t instr_set_size = list::size_v<instr_set_type>;
+  static constexpr std::size_t instr_set_size =
+      list::size_v<instr_set_desc_type>;
 
   // Map used to make assembler impl easier
   static constexpr auto instr_names =
-      names_finder<instr_set_type,
+      names_finder<instr_set_desc_type,
                    std::make_index_sequence<instr_set_size>>::value;
 
   // Check no instruction consumes types from the stack not in the stack list
-  static_assert(stack_types_checker<instr_set_type, stack_list_type>::value,
-                "[-][mvm] incompatible stack consumer types found");
+  static_assert(
+      stack_types_checker<instr_set_desc_type, stack_list_type>::value,
+      "[-][mvm] incompatible stack consumer types found");
   static_assert(instr_set_size <= 256,
                 "[-][mvm] max instruction set size (256) exceeded");
 };
@@ -134,10 +128,7 @@ namespace traits {
 template <typename Set> struct instr_set_traits {
   using set_type = Set;
 
-  using instr_set_type = typename set_type::instr_table;
-
-  using ext_instr_set_type =
-      typename detail::instr_set_traits_impl<Set>::ext_instr_set_type;
+  using instr_set_desc_type = typename set_type::instr_table;
 
   using stack_list_type =
       typename detail::instr_set_traits_impl<Set>::stack_list_type;

@@ -14,6 +14,9 @@
 
 #pragma once
 
+#include <variant>
+
+#include "mvm/except.h"
 #include "mvm/helpers/list.h"
 #include "mvm/helpers/utils.h"
 #include "mvm/instr.h"
@@ -36,6 +39,8 @@ template <char... Chars> struct i_base {
   static constexpr char const name[sizeof...(Chars)] = {Chars...};
 };
 } // namespace detail
+
+template <typename... Ts> using instr_set_desc = list::mplist<Ts...>;
 
 ///
 /// @brief Base class used to define an instruction set
@@ -154,5 +159,29 @@ public:
   template <typename T> struct code_value_repr {
     static constexpr std::size_t size = sizeof(T);
   };
+};
+
+template <typename TList, size_t N = list::size_v<TList> - 1>
+struct instr_set_visitor {
+  template <typename Callable> void operator()(size_t n, Callable &&c) {
+    if (N == n) {
+      using instr_type = list::at_t<N, TList>;
+      std::forward<Callable>(c)(instr_type{});
+    } else {
+      instr_set_visitor<TList, N - 1>()(n, std::forward<Callable>(c));
+    }
+  }
+};
+
+template <typename TList> struct instr_set_visitor<TList, 0> {
+  template <typename Callable> void operator()(size_t n, Callable &&c) {
+    if (n == 0) {
+      using instr_type = list::at_t<0, TList>;
+      std::forward<Callable>(c)(instr_type{});
+    } else {
+      throw mexcept("[-][mvm] instruction opcode overflow",
+                    status_type::INVALID_INSTR_OPCODE);
+    }
+  }
 };
 } // namespace mvm

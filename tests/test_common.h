@@ -27,8 +27,9 @@ struct test_instr_set : instr_set<test_instr_set> {
   ui32 res{};
 
   // a
-  instr_ret_t<stack_producer<ui32>> spsccc(stack_consumer<ui32> const &arg1,
-                                           code_consumer<ui32, ui32> const &arg2) {
+  instr_ret_t<stack_producer<ui32>>
+  spsccc(stack_consumer<ui32> const &arg1,
+         code_consumer<ui32, ui32> const &arg2) {
     call_stack.push_back(0);
     return update_stack(stack_at<0>(arg1) + code_at<0>(arg2));
   }
@@ -76,7 +77,7 @@ struct test_instr_set : instr_set<test_instr_set> {
   using endian_type = num::little_endian_tag;
 
   // instruction table
-  using instr_table = list::mplist<
+  using instr_table = instr_set_desc<
       i_spsccc_row<stack_producer<ui32>, stack_consumer<ui32>,
                    code_consumer<ui32, ui32>, &test_instr_set::spsccc,
                    MVM_CHAR_LIST(2, a)>,
@@ -104,7 +105,7 @@ struct test_instr_set2 : instr_set<test_instr_set2> {
   using endian_type = num::big_endian_tag;
 
   // instruction table
-  using instr_table = list::mplist<
+  using instr_table = instr_set_desc<
       i_spsc_row<stack_producer<ui32>, stack_consumer<double>,
                  &test_instr_set2::toint, MVM_CHAR_LIST(6, toint)>,
       i_spcc_row<stack_producer<double>, code_consumer<double>,

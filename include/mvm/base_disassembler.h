@@ -16,18 +16,10 @@
 
 #include <string>
 
-#include "mvm/program_chunk.h"
 #include "mvm/except.h"
+#include "mvm/program_chunk.h"
 
-#define MVM_DISASSEMBLE_I(n)                                                      \
-  case n: {                                                                    \
-    using instr_type =                                                         \
-        list::at_t<n, typename instr_set_traits_type::ext_instr_set_type>;     \
-    prog.append(disassemble_instr<instr_type>() + "\n");                                         \
-  } break;
-
-namespace mvm
-{
+namespace mvm {
 ///
 /// @brief Basic disassembler
 ///
@@ -38,95 +30,112 @@ template <typename Set> class base_disassembler {
   using instr_set_type = Set;
   using instr_set_traits_type =
       typename traits::instr_set_traits<instr_set_type>;
+  using instr_set_desc_type =
+      typename instr_set_traits_type::instr_set_desc_type;
 
-prog_chunk m_chunk;
-uint8_t *m_code_ptr;
+  prog_chunk m_chunk;
+  uint8_t *m_code_ptr;
 
 public:
   ///
   /// @brief Disassemble code chunk
   ///
-  std::string disassemble(prog_chunk&& c)
-  {
-    m_chunk = std::move(c);
-    m_code_ptr = &(m_chunk.code[0]);
-
-    return this->disassemble();
-  }
+  std::string disassemble(prog_chunk &&c);
 
 private:
+  // internal disassemble method
+  std::string disassemble();
+  // assert op is in chunk
+  bool assert_in_chunk();
 
-std::string disassemble()
-{
-    std::string prog;
-while (assert_in_chunk()) {
-      switch (*m_code_ptr) {
-        MVM_UNROLL_256(MVM_DISASSEMBLE_I)
-      default:
-        throw mexcept("[-][mvm] instruction opcode overflow",
-                      status_type::INSTR_OPCODE_OVERFLOW);
-      }
-      ++m_code_ptr;
-    }
+  // parse and update ip
+  template <typename T, std::size_t N, typename Endian>
+  void parse(std::string &instr);
 
-    return prog;
-}
-
-bool assert_in_chunk()
-{
-    return (m_code_ptr <= &(m_chunk.code[m_chunk.code.size() - 1]));
-}
-
-template <typename T, std::size_t N, typename Endian> void parse(std::string& instr) {
-    auto code_ptr = m_code_ptr + 1;
-    m_code_ptr += N;
-
-    if (!assert_in_chunk())
-    {
-        throw mexcept("[-][mvm] bytecode overflow",
-                    status_type::CODE_OVERFLOW);
-    }
-
-    instr.append(std::to_string(num::parse<T, N, Endian>(code_ptr)));
-  }
-
+  // parse operand in bytecode
   template <typename I, std::size_t Index>
-  void parse_code_value(std::string& instr) {
-    using c_type = typename I::code_consumer_type;
-    this->parse<
-        list::at_t<Index, c_type>,
-        instr_set_type::template code_value_repr<list::at_t<Index, c_type>>::size,
-        typename instr_set_traits_type::endian_type>(instr);
+  void parse_operand(std::string &instr);
 
-    if (Index < (list::size_v<c_type> - 1))
-    {
-        instr.push_back(' ');
-    }
-  }
-
+  // dissassemble instr operands
   template <typename I, std::size_t... Is>
-  void disassemble_attributes(std::string& instr, std::index_sequence<Is...>) {
-    (parse_code_value<I, Is>(instr), ...);
-  }
+  void disassemble_operands(std::string &instr, std::index_sequence<Is...>);
 
-  template <typename I>
-  std::string
-  disassemble_instr() {
-    std::string instr{I::name};
+  // disassemble instr
+  template <typename I> std::string disassemble_instr();
+};
+// impl
+template <typename Set>
+std::string base_disassembler<Set>::disassemble(prog_chunk &&c) {
+  m_chunk = std::move(c);
+  m_code_ptr = &(m_chunk.code[0]);
 
-     if (std::is_same_v<I, detail::unknown_i>) {
-            throw mexcept("[-][mvm] invalid instruction",
-                    status_type::INVALID_INSTR_OPCODE);
-    }
-
-    if constexpr (concept ::has_code_consumer_type(reflect::type<I>)) {
-      using cc_type = typename I::code_consumer_type;
-      instr.push_back(' ');
-      this->disassemble_attributes<I>(instr, std::make_index_sequence<list::size_v<cc_type>>());
-    }
-
-    return instr;
-  }
-
-    };
+  return this->disassemble();
 }
+
+template <typename Set> std::string base_disassembler<Set>::disassemble() {
+  std::string prog;
+  while (assert_in_chunk()) {
+    instr_set_visitor<instr_set_desc_type>()(
+        *m_code_ptr, [this, &prog](auto &&arg) {
+          using instr_type = std::decay_t<decltype(arg)>;
+          prog.append(this->disassemble_instr<instr_type>() + "\n");
+        });
+    ++m_code_ptr;
+  }
+
+  return prog;
+}
+
+template <typename Set> bool base_disassembler<Set>::assert_in_chunk() {
+  return (m_code_ptr <= &(m_chunk.code[m_chunk.code.size() - 1]));
+}
+
+template <typename Set>
+template <typename T, std::size_t N, typename Endian>
+void base_disassembler<Set>::parse(std::string &instr) {
+  auto code_ptr = m_code_ptr + 1;
+  m_code_ptr += N;
+
+  if (!assert_in_chunk()) {
+    throw mexcept("[-][mvm] bytecode overflow", status_type::CODE_OVERFLOW);
+  }
+
+  instr.append(std::to_string(num::parse<T, N, Endian>(code_ptr)));
+}
+
+template <typename Set>
+template <typename I, std::size_t Index>
+void base_disassembler<Set>::parse_operand(std::string &instr) {
+  using c_type = typename I::code_consumer_type;
+  this->parse<
+      list::at_t<Index, c_type>,
+      instr_set_type::template code_value_repr<list::at_t<Index, c_type>>::size,
+      typename instr_set_traits_type::endian_type>(instr);
+
+  if (Index < (list::size_v<c_type> - 1)) {
+    instr.push_back(' ');
+  }
+}
+
+template <typename Set>
+template <typename I, std::size_t... Is>
+void base_disassembler<Set>::disassemble_operands(std::string &instr,
+                                                  std::index_sequence<Is...>) {
+  (parse_operand<I, Is>(instr), ...);
+}
+
+template <typename Set>
+template <typename I>
+std::string base_disassembler<Set>::disassemble_instr() {
+  std::string instr{I::name};
+
+  if constexpr (concept ::has_code_consumer_type(reflect::type<I>)) {
+    using cc_type = typename I::code_consumer_type;
+    instr.push_back(' ');
+    this->disassemble_operands<I>(
+        instr, std::make_index_sequence<list::size_v<cc_type>>());
+  }
+
+  return instr;
+}
+} // namespace mvm
