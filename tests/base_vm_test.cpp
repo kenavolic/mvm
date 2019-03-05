@@ -46,8 +46,7 @@ protected:
   }
 
   template <typename VM>
-  void check_diassembler_nok(VM &vm, prog_chunk&& c,
-                           status_type expected) {
+  void check_diassembler_nok(VM &vm, prog_chunk &&c, status_type expected) {
     auto res = vm.disassemble(std::move(c));
     EXPECT_EQ(std::get<0>(res), expected);
     EXPECT_FALSE(std::get<1>(res));
@@ -63,7 +62,8 @@ protected:
 } // namespace
 
 TEST_F(base_vm_test, assemble_single_instr) {
-  check_assembler_ok(vm1, "a 1 2", {{0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0}});
+  check_assembler_ok(vm1, "a 1 2",
+                     {{0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0}});
   check_assembler_ok(vm1, "b", {0x1});
 
   check_assembler_ok(vm2, "pushd 2.0",
@@ -73,8 +73,8 @@ TEST_F(base_vm_test, assemble_single_instr) {
 TEST_F(base_vm_test, assemble_prog) {
   check_assembler_ok(
       vm1, "a 1 2\nb\nc 256\nd 1024\ne\nf\ng 1",
-      {{0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1, 0x2, 0x0, 0x1, 0x0, 0x0, 0x3,
-        0x0, 0x4, 0x0, 0x0, 0x4, 0x5, 0x6, 0x1, 0x0, 0x0, 0x0}});
+      {{0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x1, 0x2, 0x0, 0x1, 0x0,
+        0x0, 0x3, 0x0, 0x4, 0x0, 0x0, 0x4, 0x5, 0x6, 0x1, 0x0, 0x0, 0x0}});
 }
 
 TEST_F(base_vm_test, assemble_bad) {
@@ -96,14 +96,18 @@ TEST_F(base_vm_test, disassemble_prog) {
 }
 
 TEST_F(base_vm_test, disassemble_bad) {
-  check_diassembler_nok(vm1, prog_chunk({0x8}), status_type::INVALID_INSTR_OPCODE);
-  check_diassembler_nok(vm1, prog_chunk({0x0, 0x1}), status_type::CODE_OVERFLOW);
+  check_diassembler_nok(vm1, prog_chunk({0x8}),
+                        status_type::INVALID_INSTR_OPCODE);
+  check_diassembler_nok(vm1, prog_chunk({0x0, 0x1}),
+                        status_type::CODE_OVERFLOW);
 }
 
 TEST_F(base_vm_test, interpret_prog) {
   // e, g 1, nop, a 1 2, f;
-  EXPECT_EQ(vm1.interpret(prog_chunk({0x4, 0x6, 0x1, 0x0, 0x0, 0x0, 0x90, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x5})), 
-    status_type::SUCCESS);
+  EXPECT_EQ(
+      vm1.interpret(prog_chunk({0x4, 0x6, 0x1, 0x0, 0x0, 0x0, 0x90, 0x0, 0x1,
+                                0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x5})),
+      status_type::SUCCESS);
 
   std::vector<int> exp = {4, 6, 0, 5};
   EXPECT_EQ(iset1.call_stack, exp);
@@ -112,8 +116,10 @@ TEST_F(base_vm_test, interpret_prog) {
 
 TEST_F(base_vm_test, interpret_bad) {
   EXPECT_EQ(vm1.interpret(prog_chunk({0x0, 0x0})), status_type::CODE_OVERFLOW);
-  EXPECT_EQ(vm1.interpret(prog_chunk({0x9, 0x0})), status_type::INVALID_INSTR_OPCODE);
-  EXPECT_EQ(vm1.interpret(prog_chunk({0x1, 0x0})), status_type::POP_EMPTY_STACK);
+  EXPECT_EQ(vm1.interpret(prog_chunk({0x9, 0x0})),
+            status_type::INVALID_INSTR_OPCODE);
+  EXPECT_EQ(vm1.interpret(prog_chunk({0x1, 0x0})),
+            status_type::POP_EMPTY_STACK);
 }
 
 int base_vm_test(int argc, char *argv[]) {

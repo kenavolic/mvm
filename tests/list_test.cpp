@@ -21,9 +21,8 @@
 
 using namespace mvm::list;
 
-namespace
-{
-   template <typename T> using map_tuple = std::tuple<T>;
+namespace {
+template <typename T> using map_tuple = std::tuple<T>;
 }
 
 TEST(list_test, main) {

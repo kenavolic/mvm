@@ -28,13 +28,6 @@
 #include "mvm/macros.h"
 #include "mvm/program_chunk.h"
 
-#define MVM_INTERPRET_I(n)                                                     \
-  case n: {                                                                    \
-    using instr_type =                                                         \
-        list::at_t<n, typename instr_set_traits_type::ext_instr_set_type>;     \
-    this->apply<instr_type>();                                                 \
-  } break;
-
 namespace mvm {
 ///
 /// @brief Basic interpreter
@@ -46,6 +39,8 @@ template <typename Set> class base_interpreter {
   using instr_set_type = Set;
   using instr_set_traits_type =
       typename traits::instr_set_traits<instr_set_type>;
+  using instr_set_desc_type =
+      typename instr_set_traits_type::instr_set_desc_type;
   using stack_type = vstack<typename instr_set_traits_type::stack_list_type>;
 
   instr_set_type &m_iset;
@@ -59,133 +54,171 @@ public:
   ///
   /// @brief Interpret code chunk
   ///
-  void interpret(prog_chunk &&c) {
-    m_chunk = std::move(c);
-    m_ip = &(m_chunk.code[0]);
-
-    this->run();
-  }
+  void interpret(prog_chunk &&c);
 
 private:
-  void run() {
-    while (assert_in_chunk()) {
-      switch (*m_ip) {
-        MVM_UNROLL_256(MVM_INTERPRET_I)
-      default:
-        throw mexcept("[-][mvm] instruction opcode overflow",
-                      status_type::INSTR_OPCODE_OVERFLOW);
-      }
-      ++m_ip;
-    }
-  }
+  // run interpreter loop
+  void run();
 
-  bool assert_in_chunk()
-{
-    return (m_ip <= &(m_chunk.code[m_chunk.code.size() - 1]));
+  // invariant check
+  bool assert_in_chunk();
+
+  // parse data in bytecode
+  template <typename T, std::size_t N, typename Endian> auto parse();
+
+  // parse instr operands
+  template <typename I, std::size_t... Is>
+  auto parse_operands(std::index_sequence<Is...>);
+
+  // get values from stack
+  template <typename I, std::size_t... Is>
+  auto pop_stack_values(std::index_sequence<Is...>);
+
+  // consume stack
+  template <typename I> auto apply_stack_consume();
+
+  // consume byte code
+  template <typename I> auto apply_code_consume();
+
+  // consume both
+  template <typename I> auto apply_stack_and_code_consume();
+
+  // apply consume callback
+  template <typename I> auto apply_consume();
+
+  // apply produce ca
+  template <typename I, typename T, std::size_t... Is>
+  void apply_produce(T const &values, std::index_sequence<Is...>);
+
+  // apply instruction callback
+  template <typename I> void apply();
+};
+// impl
+template <typename Set> void base_interpreter<Set>::interpret(prog_chunk &&c) {
+  m_chunk = std::move(c);
+  m_ip = &(m_chunk.code[0]);
+
+  this->run();
 }
 
-  template <typename T, std::size_t N, typename Endian> auto parse() {
-    auto ip = m_ip + 1;
-    m_ip += N;
+template <typename Set> void base_interpreter<Set>::run() {
+  while (assert_in_chunk()) {
+    instr_set_visitor<instr_set_desc_type>()(*m_ip, [this](auto &&arg) {
+      using instr_type = std::decay_t<decltype(arg)>;
+      this->apply<instr_type>();
+    });
+    ++m_ip;
+  }
+}
 
-    if (!assert_in_chunk())
-    {
-        throw mexcept("[-][mvm] bytecode overflow",
-                    status_type::CODE_OVERFLOW);
+template <typename Set> bool base_interpreter<Set>::assert_in_chunk() {
+  return (m_ip <= &(m_chunk.code[m_chunk.code.size() - 1]));
+}
+
+template <typename Set>
+template <typename T, std::size_t N, typename Endian>
+auto base_interpreter<Set>::parse() {
+  auto ip = m_ip + 1;
+  m_ip += N;
+
+  if (!assert_in_chunk()) {
+    throw mexcept("[-][mvm] bytecode overflow", status_type::CODE_OVERFLOW);
+  }
+
+  return num::parse<T, N, Endian>(ip);
+}
+
+template <typename Set>
+template <typename I, std::size_t... Is>
+auto base_interpreter<Set>::parse_operands(std::index_sequence<Is...>) {
+  using c_type = typename I::code_consumer_type;
+  return c_type{this->parse<
+      list::at_t<Is, c_type>,
+      instr_set_type::template code_value_repr<list::at_t<Is, c_type>>::size,
+      typename instr_set_traits_type::endian_type>()...};
+}
+
+template <typename Set>
+template <typename I, std::size_t... Is>
+auto base_interpreter<Set>::pop_stack_values(std::index_sequence<Is...>) {
+  using c_type = typename I::stack_consumer_type;
+  return c_type{m_vstack.template pop<list::at_t<Is, c_type>>()...};
+}
+
+template <typename Set>
+template <typename I>
+auto base_interpreter<Set>::apply_stack_consume() {
+  using c_type = typename I::stack_consumer_type;
+  return I::apply(
+      m_iset,
+      pop_stack_values<I>(std::make_index_sequence<list::size_v<c_type>>()));
+}
+
+template <typename Set>
+template <typename I>
+auto base_interpreter<Set>::apply_code_consume() {
+  using c_type = typename I::code_consumer_type;
+  return I::apply(
+      m_iset,
+      parse_operands<I>(std::make_index_sequence<list::size_v<c_type>>()));
+}
+
+template <typename Set>
+template <typename I>
+auto base_interpreter<Set>::apply_stack_and_code_consume() {
+  using sc_type = typename I::stack_consumer_type;
+  using cc_type = typename I::code_consumer_type;
+
+  return I::apply(
+      m_iset,
+      pop_stack_values<I>(std::make_index_sequence<list::size_v<sc_type>>()),
+      parse_operands<I>(std::make_index_sequence<list::size_v<cc_type>>()));
+}
+
+template <typename Set>
+template <typename I>
+auto base_interpreter<Set>::apply_consume() {
+  if constexpr (concept ::has_stack_consumer_type(reflect::type<I>) &&
+                concept ::has_code_consumer_type(reflect::type<I>)) {
+    return this->apply_stack_and_code_consume<I>();
+  } else if constexpr (concept ::has_stack_consumer_type(reflect::type<I>)) {
+    return this->apply_stack_consume<I>();
+  } else if constexpr (concept ::has_code_consumer_type(reflect::type<I>)) {
+    return this->apply_code_consume<I>();
+  } else {
+    return I::apply(m_iset);
+  }
+}
+
+template <typename Set>
+template <typename I, typename T, std::size_t... Is>
+void base_interpreter<Set>::apply_produce(T const &values,
+                                          std::index_sequence<Is...>) {
+  (m_vstack.template push(stack_at<Is>(values)), ...);
+}
+
+template <typename Set>
+template <typename I>
+void base_interpreter<Set>::apply() {
+  std::optional<ip_data> opt_ip_data;
+  auto res = this->apply_consume<I>();
+
+  if constexpr (concept ::has_stack_producer_type(reflect::type<I>)) {
+    this->apply_produce<I>(
+        std::get<0>(res), std::make_index_sequence<
+                              list::size_v<typename I::stack_producer_type>>());
+
+    opt_ip_data = std::get<1>(res);
+  } else {
+    opt_ip_data = res;
+  }
+  // handle ip
+  if (opt_ip_data) {
+    m_ip += opt_ip_data.value();
+
+    if (!assert_in_chunk()) {
+      throw mexcept("[-][mvm] bytecode overflow", status_type::CODE_OVERFLOW);
     }
-
-    return num::parse<T, N, Endian>(ip);
   }
-
-  template <typename I, std::size_t... Is>
-  auto parse_code_values(std::index_sequence<Is...>) {
-    using c_type = typename I::code_consumer_type;
-    return c_type{this->parse<
-        list::at_t<Is, c_type>,
-        instr_set_type::template code_value_repr<list::at_t<Is, c_type>>::size,
-        typename instr_set_traits_type::endian_type>()...};
-  }
-
-  template <typename I, std::size_t... Is>
-  auto pop_stack_values(std::index_sequence<Is...>) {
-    using c_type = typename I::stack_consumer_type;
-    return c_type{m_vstack.template pop<list::at_t<Is, c_type>>()...};
-  }
-
-  template <typename I> auto apply_stack_consume() {
-    using c_type = typename I::stack_consumer_type;
-    return I::apply(
-        m_iset,
-        pop_stack_values<I>(std::make_index_sequence<list::size_v<c_type>>()));
-  }
-
-  template <typename I> auto apply_code_consume() {
-    using c_type = typename I::code_consumer_type;
-    return I::apply(
-        m_iset,
-        parse_code_values<I>(std::make_index_sequence<list::size_v<c_type>>()));
-  }
-
-  template <typename I> auto apply_stack_and_code_consume() {
-    using sc_type = typename I::stack_consumer_type;
-    using cc_type = typename I::code_consumer_type;
-
-    return I::apply(
-        m_iset,
-        pop_stack_values<I>(std::make_index_sequence<list::size_v<sc_type>>()),
-        parse_code_values<I>(
-            std::make_index_sequence<list::size_v<cc_type>>()));
-  }
-
-  template <typename I> auto apply_consume() {
-    if constexpr (concept ::has_stack_consumer_type(reflect::type<I>) &&
-                  concept ::has_code_consumer_type(reflect::type<I>)) {
-      return this->apply_stack_and_code_consume<I>();
-    } else if constexpr (concept ::has_stack_consumer_type(reflect::type<I>)) {
-      return this->apply_stack_consume<I>();
-    } else if constexpr (concept ::has_code_consumer_type(reflect::type<I>)) {
-      return this->apply_code_consume<I>();
-    } else {
-      return I::apply(m_iset);
-    }
-  }
-
-  template <typename I, typename T, std::size_t... Is>
-  void apply_produce(T const &values, std::index_sequence<Is...>) {
-    (m_vstack.template push(stack_at<Is>(values)), ...);
-  }
-
-  template <typename I> void apply() {
-    std::optional<ip_data> opt_ip_data;
-
-    if constexpr (!std::is_same_v<I, detail::unknown_i>) {
-      auto res = this->apply_consume<I>();
-
-      if constexpr (concept ::has_stack_producer_type(reflect::type<I>)) {
-        this->apply_produce<I>(
-            std::get<0>(res),
-            std::make_index_sequence<
-                list::size_v<typename I::stack_producer_type>>());
-
-        opt_ip_data = std::get<1>(res);
-      } else {
-        opt_ip_data = res;
-      }
-    } else {
-      throw mexcept("[-][mvm] invalid instruction",
-                    status_type::INVALID_INSTR_OPCODE);
-    }
-
-    // handle ip
-    if (opt_ip_data) {
-      m_ip += opt_ip_data.value();
-
-      if (!assert_in_chunk())
-      {
-          throw mexcept("[-][mvm] bytecode overflow",
-                      status_type::CODE_OVERFLOW);
-      }
-    }
-  }
-};
+}
 } // namespace mvm

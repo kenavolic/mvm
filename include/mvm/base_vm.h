@@ -57,7 +57,8 @@ public:
   /// @brief Disassemble code chunk
   ///
   auto disassemble(prog_chunk &&c) {
-    return translate([&]() { return m_disassembler.disassemble(std::move(c)); });
+    return translate(
+        [&]() { return m_disassembler.disassemble(std::move(c)); });
   }
 };
 } // namespace mvm
