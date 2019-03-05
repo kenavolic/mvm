@@ -115,7 +115,7 @@ TEST_F(base_vm_test, interpret_prog) {
 }
 
 TEST_F(base_vm_test, interpret_bad) {
-  EXPECT_EQ(vm1.interpret(prog_chunk({0x0, 0x0})), status_type::CODE_OVERFLOW);
+  EXPECT_EQ(vm1.interpret(prog_chunk({0x2, 0x0})), status_type::CODE_OVERFLOW);
   EXPECT_EQ(vm1.interpret(prog_chunk({0x9, 0x0})),
             status_type::INVALID_INSTR_OPCODE);
   EXPECT_EQ(vm1.interpret(prog_chunk({0x1, 0x0})),
