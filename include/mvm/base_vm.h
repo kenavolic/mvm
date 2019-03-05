@@ -15,6 +15,7 @@
 #pragma once
 
 #include "mvm/base_assembler.h"
+#include "mvm/base_disassembler.h"
 #include "mvm/base_interpreter.h"
 #include "mvm/except.h"
 #include "mvm/status.h"
@@ -30,8 +31,10 @@ template <typename Set> class base_vm {
   using instr_set_type = Set;
   using interpreter_type = base_interpreter<Set>;
   using assembler_type = base_assembler<Set>;
+  using disassembler_type = base_disassembler<Set>;
 
   interpreter_type m_interpreter;
+  disassembler_type m_disassembler;
 
 public:
   base_vm(instr_set_type &iset) : m_interpreter{iset} {}
@@ -48,6 +51,13 @@ public:
   ///
   auto assemble(std::istream &stream) const {
     return translate([&]() { return assembler_type::assemble(stream); });
+  }
+
+  ///
+  /// @brief Disassemble code chunk
+  ///
+  auto disassemble(prog_chunk &&c) {
+    return translate([&]() { return m_disassembler.disassemble(std::move(c)); });
   }
 };
 } // namespace mvm

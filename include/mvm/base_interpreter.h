@@ -68,21 +68,31 @@ public:
 
 private:
   void run() {
-    while (m_ip <= &(m_chunk.code[m_chunk.code.size() - 1])) {
-      switch (this->read_next()) {
+    while (assert_in_chunk()) {
+      switch (*m_ip) {
         MVM_UNROLL_256(MVM_INTERPRET_I)
       default:
         throw mexcept("[-][mvm] instruction opcode overflow",
                       status_type::INSTR_OPCODE_OVERFLOW);
       }
+      ++m_ip;
     }
   }
 
-  uint8_t read_next() { return *m_ip++; }
+  bool assert_in_chunk()
+{
+    return (m_ip <= &(m_chunk.code[m_chunk.code.size() - 1]));
+}
 
   template <typename T, std::size_t N, typename Endian> auto parse() {
-    auto ip = m_ip;
+    auto ip = m_ip + 1;
     m_ip += N;
+
+    if (!assert_in_chunk())
+    {
+        throw mexcept("[-][mvm] bytecode overflow",
+                    status_type::CODE_OVERFLOW);
+    }
 
     return num::parse<T, N, Endian>(ip);
   }
@@ -169,6 +179,12 @@ private:
     // handle ip
     if (opt_ip_data) {
       m_ip += opt_ip_data.value();
+
+      if (!assert_in_chunk())
+      {
+          throw mexcept("[-][mvm] bytecode overflow",
+                      status_type::CODE_OVERFLOW);
+      }
     }
   }
 };
