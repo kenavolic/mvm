@@ -14,16 +14,53 @@
 
 #pragma once
 
+#include "mvm/helpers/list.h"
 #include "mvm/helpers/reflect.h"
-#include "mvm/instr.h"
+#include "mvm/meta.h"
 
+// TODO: To be removed in the future
 namespace mvm::concept {
-  static constexpr auto has_stack_consumer_type = reflect::is_valid(
-      [](auto x) -> typename decltype(value_t(x))::stack_consumer_type{});
+  template <typename T> struct requires_t {
+    static_assert(T::value, "[-][mvm] requirement not met");
+  };
 
-  static constexpr auto has_stack_producer_type = reflect::is_valid(
-      [](auto x) -> typename decltype(value_t(x))::stack_producer_type{});
+  template <bool B> struct requires_v {
+    static_assert(B, "[-][mvm] requirement not met");
+  };
 
-  static constexpr auto has_code_consumer_type = reflect::is_valid(
-      [](auto x) -> typename decltype(value_t(x))::code_consumer_type{});
+  // requirements
+  template <typename I> inline constexpr bool is_code_consumer() noexcept {
+    return !list::is_empty_v<typename I::bytecode_type>;
+  }
+
+  template <typename T>
+  inline constexpr bool is_container_valid_v =
+      reflect::has_iterator(reflect::type<T>) &&
+      reflect::has_value_type(reflect::type<T>);
+
+  template <typename T>
+  inline constexpr bool is_iterable_consumer_v =
+      reflect::has_counter_type(reflect::type<T>);
+
+  template <typename T>
+  inline constexpr bool is_tuple_v =
+      reflect::is_specialization_of_v<std::tuple, T>;
+
+  template <typename I>
+  inline constexpr bool is_consumer_v =
+      !std::is_same_v<typename I::consumers_type, no_cons>;
+
+  template <typename I>
+  inline constexpr bool is_code_consumer_v =
+      !list::is_empty_v<typename I::bytecode_type>;
+
+  template <typename I>
+  inline constexpr bool is_producer_v =
+      !std::is_same_v<typename I::producers_type, no_prod>;
+
+  template <typename I> inline constexpr bool is_ip_udpater_v = I::doUpdateIp;
+
+  template <template <typename> typename Meta>
+  inline constexpr bool is_meta_bytecode_v =
+      reflect::is_same_meta_v<Meta, meta_bytecode>;
 } // namespace mvm::concept

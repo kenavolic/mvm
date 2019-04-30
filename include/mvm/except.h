@@ -14,12 +14,13 @@
 
 #pragma once
 
+#include "mvm/status.h"
+
 #include <exception>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <type_traits>
-
-#include "mvm/status.h"
 
 namespace mvm {
 
@@ -37,7 +38,7 @@ private:
   status_type m_status;
 };
 
-namespace detail {
+namespace details {
 template <typename Callable, typename R = std::invoke_result_t<Callable>>
 struct translate_imp {
   std::tuple<status_type, std::optional<R>> operator()(Callable &&f) {
@@ -63,13 +64,13 @@ template <typename Callable> struct translate_imp<Callable, void> {
     }
   }
 };
-} // namespace detail
+} // namespace details
 
 ///
 /// @brief Exception conversion utilities
 ///
 template <typename Callable> auto translate(Callable &&f) {
-  return detail::translate_imp<Callable>()(std::forward<Callable>(f));
+  return details::translate_imp<Callable>()(std::forward<Callable>(f));
 }
 
 } // namespace mvm

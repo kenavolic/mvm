@@ -12,22 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "gtest/gtest.h"
-
 #include "mvm/helpers/reflect.h"
+
+#include "gtest/gtest.h"
 
 using namespace mvm::reflect;
 
-//-------------------------------------
-// Utility
-
 namespace {
 struct foo {
-  int test(int, double);
+  int test(int, double) { return 0; }
 };
 
 struct bar {
-  int test(int);
+  int test(int) { return 0; }
 };
 
 int f(int, double);
@@ -64,6 +61,20 @@ TEST(reflect_test, main) {
                 "[-][reflect_test] is_valid failed");
   static_assert(!has_test2(type<bar>, int{}, double{}),
                 "[-][reflect_test] is_valid failed");
+
+  // is_spe
+  static_assert(is_specialization_of_v<std::vector, std::vector<int>>,
+                "[-][reflect_test] is_spe failed");
+  static_assert(is_specialization_of_v<std::tuple, std::tuple<int, double>>,
+                "[-][reflect_test] is_spe failed");
+  static_assert(!is_specialization_of_v<std::tuple, std::vector<int>>,
+                "[-][reflect_test] is_spe failed");
+
+  // has type
+  static_assert(has_iterator(type<std::vector<int>>),
+                "[-][reflect_test] has_iterator failed");
+  static_assert(!has_iterator(type<std::tuple<int>>),
+                "[-][reflect_test] has_iterator failed");
 
   // no runtime test
   EXPECT_TRUE(true);

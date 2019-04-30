@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -23,7 +24,7 @@ namespace mvm::num {
 struct little_endian_tag {};
 struct big_endian_tag {};
 
-namespace detail {
+namespace details {
 // utility struct used to bytify and set endianness for input and output data
 // note that internal endiannes is le
 template <size_t N, typename E1, typename E2> struct to_endian {
@@ -47,7 +48,15 @@ template <size_t N, typename E> struct to_endian<N, E, E> {
     return bytify(bytes, std::make_index_sequence<N>());
   }
 };
-} // namespace detail
+
+inline int base(std::string const str) {
+  if (str.find_first_of("0x") == 0) {
+    return 16;
+  } else {
+    return 10;
+  }
+}
+} // namespace details
 
 namespace traits {
 template <std::size_t N> struct ieee754_traits;
@@ -132,9 +141,9 @@ T parse_floating(std::array<uint8_t, N> const &bytes) {
     bool neg =
         (f_as_ui >> (ieee754_type::mant_size + ieee754_type::exp_size)) & 0x1;
 
-    T output =
-        std::ldexp(mant, static_cast<int32_t>(exp) - ieee754_type::exp_shift -
-                             ieee754_type::mant_size);
+    T output = static_cast<T>(std::ldexp(mant, static_cast<int32_t>(exp) -
+                                                   ieee754_type::exp_shift -
+                                                   ieee754_type::mant_size));
 
     if (neg) {
       output = -output;
@@ -162,7 +171,8 @@ template <typename T, std::size_t N> auto serial_floating(double val) {
     d_mant = fabs(d_mant) * 2 - 1; // again the shift is the radix point
 
     unsigned_type u_exp = exp;
-    unsigned_type u_mant = std::ldexp(d_mant, ieee754_type::mant_size);
+    unsigned_type u_mant =
+        static_cast<unsigned_type>(std::ldexp(d_mant, ieee754_type::mant_size));
 
     unsigned_type u_bytes;
     u_bytes = (u_mant & ieee754_type::mant_mask);
@@ -176,7 +186,7 @@ template <typename T, std::size_t N> auto serial_floating(double val) {
 
 template <typename T, std::size_t N, typename Endian>
 auto parse(uint8_t const *bytes) {
-  auto bytes_arr = detail::to_endian<N, Endian, little_endian_tag>()(bytes);
+  auto bytes_arr = details::to_endian<N, Endian, little_endian_tag>()(bytes);
 
   if constexpr (std::is_floating_point_v<T>) {
     return parse_floating<T>(bytes_arr);
@@ -193,11 +203,11 @@ std::array<uint8_t, N> serial(std::string const &str) {
   if constexpr (std::is_floating_point_v<T>) {
     res = serial_floating<T, N>(std::stod(str));
   } else if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>) {
-    res = serial_unsigned<N>(std::stoull(str));
+    res = serial_unsigned<N>(std::stoull(str, nullptr, details::base(str)));
   } else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>) {
-    res = serial_signed<T, N>(std::stoll(str));
+    res = serial_signed<T, N>(std::stoll(str, nullptr, details::base(str)));
   }
 
-  return detail::to_endian<N, little_endian_tag, Endian>()(&res[0]);
+  return details::to_endian<N, little_endian_tag, Endian>()(&res[0]);
 }
 } // namespace mvm::num

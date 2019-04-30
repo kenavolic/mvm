@@ -15,99 +15,136 @@
 #pragma once
 
 #include "mvm/helpers/num_parse.h"
-#include "mvm/instr.h"
 #include "mvm/instr_set.h"
 #include "mvm/macros.h"
 #include "mvm/types.h"
 
 namespace mvm::test {
+
 struct test_instr_set : instr_set<test_instr_set> {
+  std::vector<unsigned> call_stack;
 
-  std::vector<int> call_stack;
-  ui32 res{};
-
-  // a
-  instr_ret_t<stack_producer<ui32>> spsccc(stack_consumer<ui32> const &arg1,
-                                           code_consumer<ui32> const &arg2) {
+  ui32 zero() {
     call_stack.push_back(0);
-    return update_stack(stack_at<0>(arg1) + code_at<0>(arg2));
+    return 0;
   }
 
-  // b
-  instr_ret_t<stack_producer<ui32>> spsc(stack_consumer<ui32> const &arg) {
+  // code consumer, eip modifier
+  void jump(ip &eip, ui32 val) {
     call_stack.push_back(1);
-    // test update ip stack
-    return update_ip_stack(1, stack_at<0>(arg));
+    eip = val;
   }
 
-  // c
-  instr_ret_t<stack_producer<ui32>> spcc(code_consumer<ui32> const &arg) {
+  // stack producer, consumer
+  std::tuple<ui32, ui32> dup(ui32 val) {
     call_stack.push_back(2);
-    return update_stack(code_at<0>(arg));
+    return std::make_tuple(val, val);
   }
 
-  // d
-  instr_ret_t<nonsuch> sccc(stack_consumer<ui32> const &arg1,
-                            code_consumer<ui32> const &arg2) {
-    call_stack.push_back(3);
-    return update_none();
-  }
+  // pop from code and push to stack = pipe
+  /*ui32 push(ui32 val)
+  {
+      return val;
+  }*/
 
-  // e
-  instr_ret_t<stack_producer<ui32>> sp() {
+  // piping (pop n from code and push n value to the stack)
+  std::vector<ui32> randn(ui32 n) {
     call_stack.push_back(4);
-    return update_stack(1);
+    return std::vector<ui32>(n, 1);
   }
 
-  // f
-  instr_ret_t<nonsuch> sc(stack_consumer<ui32> const &arg) {
+  // pop n from the code <-> pop n value from the stack, push n modified to the
+  // stack
+  std::vector<ui32> rotln(std::vector<ui32> &&vec) {
+    std::cout << "call_stack.push_back(5)" << std::endl;
     call_stack.push_back(5);
-    res = stack_at<0>(arg);
-    return update_none();
+    // Does not anything ;)
+    return vec;
   }
 
-  // g
-  instr_ret_t<nonsuch> cc(code_consumer<ui32> const &arg) {
+  ui32 add(ui32 a, ui32 b) {
     call_stack.push_back(6);
-    return update_ip(code_at<0>(arg));
+    return a + b;
   }
 
-  // byte code endianness
   using endian_type = num::little_endian_tag;
 
-  // instruction table
-  using instr_table = list::mplist<
-      i_spsccc_row<stack_producer<ui32>, stack_consumer<ui32>,
-                   code_consumer<ui32>, &test_instr_set::spsccc,
-                   MVM_CHAR_LIST(2, a)>,
-      i_spsc_row<stack_producer<ui32>, stack_consumer<ui32>,
-                 &test_instr_set::spsc, MVM_CHAR_LIST(2, b)>,
-      i_spcc_row<stack_producer<ui32>, code_consumer<ui32>,
-                 &test_instr_set::spcc, MVM_CHAR_LIST(2, c)>,
-      i_sccc_row<stack_consumer<ui32>, code_consumer<ui32>,
-                 &test_instr_set::sccc, MVM_CHAR_LIST(2, d)>,
-      i_sp_row<stack_producer<ui32>, &test_instr_set::sp, MVM_CHAR_LIST(2, e)>,
-      i_sc_row<stack_consumer<ui32>, &test_instr_set::sc, MVM_CHAR_LIST(2, f)>,
-      i_cc_row<code_consumer<ui32>, &test_instr_set::cc, MVM_CHAR_LIST(2, g)>>;
+  using me = test_instr_set;
+  using instr_table = instr_set_desc<
+      producer_instr<producer<meta_value_stack, ui32>, false, &me::zero,
+                     MVM_TSTRING("zero")>,
+      consumer_instr<consumer<meta_bytecode, ui32>, true, &me::jump,
+                     MVM_TSTRING("jump")>,
+      consumer_producer_instr<consumer<meta_value_stack, ui32>,
+                              producer<meta_value_stack, ui32, ui32>, false,
+                              &me::dup, MVM_TSTRING("dup")>,
+      consumer_producer_pipe<consumer<meta_bytecode, ui32>,
+                             producer<meta_value_stack, ui32>,
+                             MVM_TSTRING("push")>,
+      consumer_producer_instr<consumer<meta_bytecode, ui32>,
+                              producer<meta_value_stack, std::vector<ui32>>,
+                              false, &me::randn, MVM_TSTRING("randn")>,
+      consumer_producer_instr<
+          iterable_consumer<meta_value_stack, std::vector<ui32> &&,
+                            count_from<consumer<meta_bytecode, ui32>>>,
+          producer<meta_value_stack, std::vector<ui32>>, false, &me::rotln,
+          MVM_TSTRING("rotln")>,
+      consumer_producer_instr<consumer<meta_value_stack, ui32, ui32>,
+                              producer<meta_value_stack, ui32>, false, &me::add,
+                              MVM_TSTRING("add")>>;
 };
 
-struct test_instr_set2 : instr_set<test_instr_set2> {
-  instr_ret_t<stack_producer<ui32>> toint(stack_consumer<double> const &arg1) {
-    return update_stack(static_cast<double>(stack_at<0>(arg1)));
-  }
+// new concept to handle stack for double
+template <typename T> struct meta_double_stack {};
 
-  instr_ret_t<stack_producer<double>> pushd(code_consumer<double> const &arg) {
-    return update_stack(code_at<0>(arg));
-  }
+struct test_common_mixed_arithmetic : instr_set<test_common_mixed_arithmetic> {
+  std::tuple<ui32, ui32> kui2() { return std::make_tuple(0, 1); }
 
-  // byte code endianness
-  using endian_type = num::big_endian_tag;
+  ui32 kui() { return 1; }
 
-  // instruction table
-  using instr_table = list::mplist<
-      i_spsc_row<stack_producer<ui32>, stack_consumer<double>,
-                 &test_instr_set2::toint, MVM_CHAR_LIST(6, toint)>,
-      i_spcc_row<stack_producer<double>, code_consumer<double>,
-                 &test_instr_set2::pushd, MVM_CHAR_LIST(6, pushd)>>;
+  std::vector<double> kdn() { return {0.0, 1.1, 2.2}; }
+
+  double kd1() { return 1; }
+
+  double ufadd(ui32 a, double b) { return static_cast<double>(a) + b; }
+
+  using endian_type = num::little_endian_tag;
+};
+
+struct test_instr_set_extra : test_common_mixed_arithmetic {
+
+  using me = test_instr_set_extra;
+  using instr_table = instr_set_desc<
+      producer_instr<producer<meta_value_stack, ui32, ui32>, false, &me::kui2,
+                     MVM_TSTRING("kui2")>,
+      producer_instr<producer<meta_double_stack, std::vector<double>>, false,
+                     &me::kdn, MVM_TSTRING("kdn")>,
+      producer_instr<producer<meta_value_stack, ui32>, false, &me::kui,
+                     MVM_TSTRING("kui")>,
+      producer_instr<producer<meta_double_stack, double>, false, &me::kd1,
+                     MVM_TSTRING("kd1")>,
+      // from right to left
+      consumers_producer_instr<consumers<consumer<meta_double_stack, double>,
+                                         consumer<meta_value_stack, ui32>>,
+                               producer<meta_double_stack, double>, false,
+                               &me::ufadd, MVM_TSTRING("ufadd")>>;
+};
+
+struct test_instr_set_mixed : test_common_mixed_arithmetic {
+  using me = test_instr_set_extra;
+  using instr_table = instr_set_desc<
+      producer_instr<producer<meta_value_stack, ui32, ui32>, false, &me::kui2,
+                     MVM_TSTRING("kui2")>,
+      producer_instr<producer<meta_value_stack, std::vector<double>>, false,
+                     &me::kdn, MVM_TSTRING("kdn")>,
+      producer_instr<producer<meta_value_stack, ui32>, false, &me::kui,
+                     MVM_TSTRING("kui")>,
+      producer_instr<producer<meta_value_stack, double>, false, &me::kd1,
+                     MVM_TSTRING("kd1")>,
+      // from right to left
+      consumers_producer_instr<consumers<consumer<meta_value_stack, double>,
+                                         consumer<meta_value_stack, ui32>>,
+                               producer<meta_value_stack, double>, false,
+                               &me::ufadd, MVM_TSTRING("ufadd")>>;
 };
 } // namespace mvm::test

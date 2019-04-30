@@ -1,12 +1,15 @@
 set (TARGET_NAME ${MVM_LIB}_test)
 
 set (MVM_TST
-    base_stack_test.cpp
-    base_vm_test.cpp
+    value_stack_test.cpp
+    vm_test.cpp
     instr_set_test.cpp
     list_test.cpp
+    meta_test.cpp
     num_parse_test.cpp
+    program_test.cpp
     reflect_test.cpp
+    typestring_test.cpp
 )
 
 create_test_sourcelist( 

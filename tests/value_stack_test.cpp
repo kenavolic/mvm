@@ -14,14 +14,14 @@
 
 #include "gtest/gtest.h"
 
-#include "mvm/base_stack.h"
 #include "mvm/helpers/list.h"
+#include "mvm/value_stack.h"
 
 using namespace mvm;
 using namespace list;
 
-TEST(base_stack_test, single_type) {
-  using stack = vstack<mplist<int>>;
+TEST(value_stack_test, single_type) {
+  using stack = value_stack<mplist<int>>;
 
   stack s;
   s.push(1);
@@ -29,8 +29,8 @@ TEST(base_stack_test, single_type) {
   EXPECT_EQ(1, s.template pop<int>());
 }
 
-TEST(base_stack_test, multiple_type) {
-  using stack = vstack<mplist<int, double>>;
+TEST(value_stack_test, multiple_type) {
+  using stack = value_stack<mplist<int, double>>;
 
   stack s;
   s.push(1);
@@ -44,8 +44,8 @@ TEST(base_stack_test, multiple_type) {
   EXPECT_EQ(1, s.template pop<int>());
 }
 
-TEST(base_stack_test, multiple_type_bad_type) {
-  using stack = vstack<mplist<int, double>>;
+TEST(value_stack_test, multiple_type_bad_type) {
+  using stack = value_stack<mplist<int, double>>;
 
   stack s;
 
@@ -55,9 +55,9 @@ TEST(base_stack_test, multiple_type_bad_type) {
   EXPECT_ANY_THROW(s.template pop<int>());
 }
 
-int base_stack_test(int argc, char *argv[]) {
+int value_stack_test(int argc, char *argv[]) {
   ::testing::InitGoogleTest(&argc, argv);
-  ::testing::FLAGS_gtest_filter = "base_stack_test*";
+  ::testing::FLAGS_gtest_filter = "value_stack_test*";
 
   return RUN_ALL_TESTS();
 }

@@ -47,7 +47,7 @@ template <template <typename...> typename Op, typename... Args>
 using is_detected_t = typename is_detected<Op, Args...>::type;
 
 template <template <typename...> typename Op, typename... Args>
-constexpr bool is_detected_v = is_detected_t<Op, Args...>::value;
+inline constexpr bool is_detected_v = is_detected_t<Op, Args...>::value;
 
 // general compile-time validator (ref: C++ template the complete guide)
 
@@ -64,4 +64,33 @@ template <typename T> struct type_t { using type = T; };
 template <typename T> constexpr auto type = type_t<T>{};
 
 template <typename T> T value_t(type_t<T>);
+
+template <template <typename...> typename TT, typename T>
+struct is_specialization_of : std::false_type {};
+
+template <template <typename...> typename TT, typename... Args>
+struct is_specialization_of<TT, TT<Args...>> : std::true_type {};
+
+template <template <typename...> typename TT, typename T>
+inline constexpr bool is_specialization_of_v =
+    is_specialization_of<TT, T>::value;
+
+template <template <typename> typename U, template <typename> typename V>
+static constexpr bool is_same_meta_v = std::is_same_v<U<int>, V<int>>;
+
+// TODO: Use common macro for type, method check...
+inline constexpr auto has_iterator =
+    is_valid([](auto x) -> typename decltype(value_t(x))::iterator{});
+
+inline constexpr auto has_value_type =
+    is_valid([](auto x) -> typename decltype(value_t(x))::value_type{});
+
+inline constexpr auto has_counter_type =
+    is_valid([](auto x) -> typename decltype(value_t(x))::counter_type{});
+
+inline constexpr auto has_push = is_valid(
+    [](auto x, auto &&... args) -> decltype((void)value_t(x).push(args...)) {});
+
+inline constexpr auto has_pop = is_valid(
+    [](auto x, auto &&... args) -> decltype((void)value_t(x).pop(args...)) {});
 } // namespace mvm::reflect

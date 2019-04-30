@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "mvm/helpers/list.h"
+
 #include "gtest/gtest.h"
 
 #include <tuple>
 #include <type_traits>
 
-#include "mvm/helpers/list.h"
-
 using namespace mvm::list;
 
-namespace
-{
-   template <typename T> using map_tuple = std::tuple<T>;
-}
+namespace {
+template <typename T> using map_tuple = std::tuple<T>;
+
+template <typename T> using int_pred = std::is_same<T, int>;
+} // namespace
 
 TEST(list_test, main) {
   // is empty
@@ -110,10 +111,26 @@ TEST(list_test, main) {
                                concat_t<mplist<int>, mplist<int, double>>>,
                 "[-][list_test] concat failed");
 
+  // concate all
+  static_assert(std::is_same_v<mplist<float, int, double, int>,
+                               concat_all_t<mplist<int>, mplist<int, double>,
+                                            mplist<>, mplist<float>>>,
+                "[-][list_test] concat_all_t failed");
+
   // merge
   static_assert(std::is_same_v<mplist<double, int>,
                                merge_t<mplist<int>, mplist<int, double>>>,
                 "[-][list_test] merge failed");
+
+  // filter
+  static_assert(
+      std::is_same_v<mplist<int, int>,
+                     filter_t<int_pred, true, mplist<int, double, int>>>,
+      "[-][list_test] filter failed");
+  static_assert(
+      std::is_same_v<mplist<double>,
+                     filter_t<int_pred, false, mplist<int, double, int>>>,
+      "[-][list_test] filter failed");
 
   // rebind
   static_assert(std::is_same_v<rebind_t<std::tuple, mplist<int, int>>,

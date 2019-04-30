@@ -102,7 +102,7 @@ struct pop_back<List<Head>> {
 
 template <typename List> using pop_back_t = typename pop_back<List>::type;
 
-namespace detail {
+namespace details {
 template <typename Item, typename List, bool = is_empty_v<List>>
 struct push_back_impl;
 
@@ -117,10 +117,10 @@ template <typename Item, typename List>
 struct push_back_impl<Item, List, true> {
   using type = push_front_t<Item, List>;
 };
-} // namespace detail
+} // namespace details
 
 template <typename Item, typename List>
-struct push_back : detail::push_back_impl<Item, List> {};
+struct push_back : details::push_back_impl<Item, List> {};
 
 template <typename Item, typename List>
 using push_back_t = typename push_back<Item, List>::type;
@@ -229,6 +229,38 @@ using concat_t = typename concat<List1, List2>::type;
 
 template <typename List1, typename List2>
 using merge_t = remove_dup_t<concat_t<List1, List2>>;
+
+template <typename... Lists> struct concat_all;
+
+template <typename L1, typename L2, typename... Ls>
+struct concat_all<L1, L2, Ls...> {
+  using type = concat_t<L1, typename concat_all<L2, Ls...>::type>;
+};
+
+template <typename L> struct concat_all<L> { using type = L; };
+
+template <typename... Lists>
+using concat_all_t = typename concat_all<Lists...>::type;
+
+template <template <typename> typename Pred, bool PredValue, typename List,
+          bool = is_empty_v<List>>
+struct filter;
+
+template <template <typename> typename Pred, bool PredValue, typename List>
+struct filter<Pred, PredValue, List, false> {
+  using head = front_t<List>;
+  using tail = typename filter<Pred, PredValue, pop_front_t<List>>::type;
+  using type = std::conditional_t<Pred<head>::value == PredValue,
+                                  push_front_t<head, tail>, tail>;
+};
+
+template <template <typename> typename Pred, bool PredValue, typename List>
+struct filter<Pred, PredValue, List, true> {
+  using type = List;
+};
+
+template <template <typename> typename Pred, bool PredValue, typename List>
+using filter_t = typename filter<Pred, PredValue, List>::type;
 
 template <template <typename...> typename TList, typename SList> struct rebind;
 

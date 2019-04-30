@@ -14,28 +14,11 @@
 
 #pragma once
 
-#include "mvm/helpers/list.h"
-#include "mvm/helpers/utils.h"
-#include "mvm/instr.h"
+#include "mvm/meta.h"
 
 namespace mvm {
-namespace detail {
-// different types of instruction
 
-// sc: stack consumer (needs value from stack)
-template <typename Arg> struct i_sc_impl { using stack_consumer_type = Arg; };
-
-// sp: stack producer (produce value to stack)
-template <typename Arg> struct i_sp_impl { using stack_producer_type = Arg; };
-
-// cc: code consumer (needs value from bytecode)
-template <typename Arg> struct i_cc_impl { using code_consumer_type = Arg; };
-
-// base instr
-template <char... Chars> struct i_base {
-  static constexpr char const name[sizeof...(Chars)] = {Chars...};
-};
-} // namespace detail
+template <typename... Ts> using instr_set_desc = list::mplist<Ts...>;
 
 ///
 /// @brief Base class used to define an instruction set
@@ -47,112 +30,116 @@ template <typename Set> struct instr_set {
 private:
   using instr_set_type = Set;
 
-  // utility internal struct used to gather code
-  // for handling of instruction callback
-  template <typename T, T Func> struct i_apply;
+  template <bool DoUpdateIp, typename Consumers, typename Producers, typename S>
+  struct base_instr {
+    // all the following static types and values are just shortcuts
+    // for easy access to instructions props
+    using name_type = S;
+    using value_stack_type = value_stack_types_t<Producers>;
+    using bytecode_type = bytecode_types_t<Consumers>;
+    using consumers_type = Consumers;
+    using producers_type = Producers;
 
-  template <typename Ret, typename... Args,
-            Ret (instr_set_type::*Func)(Args...)>
-  struct i_apply<Ret (instr_set_type::*)(Args...), Func> {
-    template <typename VM> static Ret apply(VM &vm, Args &&... args) {
+    static constexpr bool doUpdateIp = DoUpdateIp;
+  };
+
+  template <typename Consumers, typename Producers, bool DoUpdateIp,
+            typename details::desc_to_proto<Set, Producers, Consumers,
+                                            DoUpdateIp>::type Func,
+            typename S>
+  struct generic_instr : base_instr<DoUpdateIp, Consumers, Producers, S> {
+    template <typename VM, typename... Args>
+    static auto apply(VM &vm, Args &&... args) {
       return (vm.*Func)(std::forward<Args>(args)...);
     }
   };
 
 public:
-  ///
-  /// @brief stack-producer, stack-consumer, code-consumer instr
-  ///
-  template <typename SP, typename SC, typename CC,
-            instr_ret_t<SP> (instr_set_type::*Func)(SC const &, CC const &),
-            char... Chars>
-  struct i_spsccc_row
-      : detail::i_sp_impl<SP>,
-        detail::i_sc_impl<SC>,
-        detail::i_cc_impl<CC>,
-        detail::i_base<Chars...>,
-        i_apply<instr_ret_t<SP> (instr_set_type::*)(SC const &, CC const &),
-                Func> {};
+  template <typename Consumers, typename Producer, bool DoUpdateIp, auto Func,
+            typename S>
+  struct consumers_producer_instr
+      : generic_instr<Consumers, producers<Producer>, DoUpdateIp, Func, S> {};
 
-  ///
-  /// @brief stack-producer, stack-consumer instr
-  ///
-  template <typename SP, typename SC,
-            instr_ret_t<SP> (instr_set_type::*Func)(SC const &), char... Chars>
-  struct i_spsc_row
-      : detail::i_sp_impl<SP>,
-        detail::i_sc_impl<SC>,
-        detail::i_base<Chars...>,
-        i_apply<instr_ret_t<SP> (instr_set_type::*)(SC const &), Func> {};
+  template <typename Consumers, bool DoUpdateIp, auto Func, typename S>
+  struct consumers_instr
+      : generic_instr<Consumers, no_prod, DoUpdateIp, Func, S> {};
 
-  ///
-  /// @brief stack-producer, code-consumer instr
-  ///
-  template <typename SP, typename CC,
-            instr_ret_t<SP> (instr_set_type::*Func)(CC const &), char... Chars>
-  struct i_spcc_row
-      : detail::i_sp_impl<SP>,
-        detail::i_cc_impl<CC>,
-        detail::i_base<Chars...>,
-        i_apply<instr_ret_t<SP> (instr_set_type::*)(CC const &), Func> {};
+  template <typename Consumer, typename Producer, bool DoUpdateIp, auto Func,
+            typename S>
+  struct consumer_producer_instr
+      : generic_instr<consumers<Consumer>, producers<Producer>, DoUpdateIp,
+                      Func, S> {};
 
-  ///
-  /// @brief stack-consumer, code-consumer instr
-  ///
-  template <typename SC, typename CC,
-            instr_ret_t<nonsuch> (instr_set_type::*Func)(SC const &,
-                                                         CC const &),
-            char... Chars>
-  struct i_sccc_row : detail::i_sc_impl<SC>,
-                      detail::i_cc_impl<CC>,
-                      detail::i_base<Chars...>,
-                      i_apply<instr_ret_t<nonsuch> (instr_set_type::*)(
-                                  SC const &, CC const &),
-                              Func> {};
+  template <typename Consumer, bool DoUpdateIp, auto Func, typename S>
+  struct consumer_instr
+      : generic_instr<consumers<Consumer>, no_prod, DoUpdateIp, Func, S> {};
 
-  ///
-  /// @brief stack-producer
-  ///
-  template <typename SP, instr_ret_t<SP> (instr_set_type::*Func)(),
-            char... Chars>
-  struct i_sp_row : detail::i_sp_impl<SP>,
-                    detail::i_base<Chars...>,
-                    i_apply<instr_ret_t<SP> (instr_set_type::*)(), Func> {};
+  template <typename Producer, bool DoUpdateIp, auto Func, typename S>
+  struct producer_instr
+      : generic_instr<no_cons, producers<Producer>, DoUpdateIp, Func, S> {};
 
-  ///
-  /// @brief stack-consumer
-  ///
-  template <typename SC,
-            instr_ret_t<nonsuch> (instr_set_type::*Func)(SC const &),
-            char... Chars>
-  struct i_sc_row
-      : detail::i_sc_impl<SC>,
-        detail::i_base<Chars...>,
-        i_apply<instr_ret_t<nonsuch> (instr_set_type::*)(SC const &), Func> {};
+  template <typename Consumer, typename Producer, typename S>
+  struct consumer_producer_pipe
+      : base_instr<false, consumers<Consumer>, producers<Producer>, S> {
+    template <typename VM, typename Arg> static auto apply(VM &vm, Arg arg) {
+      return arg;
+    }
+  };
 
-  ///
-  /// @brief code-consumer instr
-  ///
-  template <typename CC,
-            instr_ret_t<nonsuch> (instr_set_type::*Func)(CC const &),
-            char... Chars>
-  struct i_cc_row
-      : detail::i_cc_impl<CC>,
-        detail::i_base<Chars...>,
-        i_apply<instr_ret_t<nonsuch> (instr_set_type::*)(CC const &), Func> {};
+  template <typename Consumer, typename S>
+  struct consumer_pipe : base_instr<false, consumers<Consumer>, no_prod, S> {
+    template <typename VM, typename Arg> static void apply(VM &vm, Arg arg) {
+      // sink
+    }
+  };
 
   ///
   /// @brief base struct to define value representation in byte codes
   ///
   /// Default behavior is to used the size of the c++ type as size in the
   /// byte code but specific behavior can be defined by specializing this
-  /// template
+  /// template. Default endianness is the endianness defined for the instruction
+  /// set.
   ///
   /// Expected format for signed integer: 2-complement
   /// Expected format for floating point number: IEE754
   ///
   template <typename T> struct code_value_repr {
     static constexpr std::size_t size = sizeof(T);
+    using endian_type = typename instr_set_type::endian_type;
+    // override endianness
   };
+};
+
+///
+/// @brief Instruction set visitor used to call the right instruction callback
+///  according to the instruction index.
+///
+/// @warning For small instruction set, the performance is ok, but macro
+/// unrolling
+///          is better when the set size increases.
+///
+template <typename TList, size_t N = list::size_v<TList> - 1>
+struct instr_set_visitor {
+  template <typename Callable> void operator()(size_t n, Callable &&c) const {
+    if (N == n) {
+      using instr_type = list::at_t<N, TList>;
+      std::forward<Callable>(c)(instr_type{});
+    } else {
+      instr_set_visitor<TList, N - 1>()(n, std::forward<Callable>(c));
+    }
+  }
+};
+
+template <typename TList> struct instr_set_visitor<TList, 0> {
+  template <typename Callable> void operator()(size_t n, Callable &&c) const {
+    if (n == 0) {
+      using instr_type = list::at_t<0, TList>;
+      std::forward<Callable>(c)(instr_type{});
+    } else {
+      throw mexcept("[-][mvm] instruction opcode overflow",
+                    status_type::INVALID_INSTR_OPCODE);
+    }
+  }
 };
 } // namespace mvm

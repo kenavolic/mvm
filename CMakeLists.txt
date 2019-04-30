@@ -2,11 +2,12 @@
 cmake_minimum_required(VERSION 3.9)
 
 # Project
-project(mvm LANGUAGES CXX VERSION 0.1.0)
+project(mvm LANGUAGES CXX VERSION 0.2.0)
 
 # Options
 option(MVM_BUILD_TESTS "Build tests" ON)
-option(MVM_BUILD_EXAMPLES "Build examples" OFF)
+option(MVM_BUILD_EXAMPLES "Build examples" ON)
+option(MVM_BUILD_WITH_TRACES "Build with traces" OFF)
 
 # General Config
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -24,26 +25,29 @@ add_subdirectory(third_party)
 set (MVM_LIB mvm)
 
 set (MVM_CORE_INCL
-    ${PROJECT_SOURCE_DIR}/include/mvm/base_assembler.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/base_interpreter.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/base_stack.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/base_vm.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/assembler.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/bytecode_serializer.h
     ${PROJECT_SOURCE_DIR}/include/mvm/concept.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/disassembler.h
     ${PROJECT_SOURCE_DIR}/include/mvm/except.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/instr.h
     ${PROJECT_SOURCE_DIR}/include/mvm/instr_set.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/instr_set_traits.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/ip.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/interpreter.h
     ${PROJECT_SOURCE_DIR}/include/mvm/macros.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/num_parse.h
-    ${PROJECT_SOURCE_DIR}/include/mvm/program_chunk.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/meta.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/program.h
     ${PROJECT_SOURCE_DIR}/include/mvm/status.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/traits.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/trace.h
     ${PROJECT_SOURCE_DIR}/include/mvm/types.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/value_stack.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/vm.h    
 )
 
 set (MVM_HELPERS_INCL
     ${PROJECT_SOURCE_DIR}/include/mvm/helpers/list.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/helpers/num_parse.h
     ${PROJECT_SOURCE_DIR}/include/mvm/helpers/reflect.h
+	${PROJECT_SOURCE_DIR}/include/mvm/helpers/typestring.h
     ${PROJECT_SOURCE_DIR}/include/mvm/helpers/utils.h
 )
 
@@ -56,6 +60,10 @@ target_include_directories(
     $<INSTALL_INTERFACE:include>
 )
 target_compile_features(${MVM_LIB} INTERFACE cxx_std_17)
+
+if (MVM_BUILD_WITH_TRACES)
+    target_compile_definitions(${MVM_LIB} INTERFACE ENABLE_TRACES)
+endif()
 
 if (MSVC)
     add_custom_target(${MVM_LIB}_headers SOURCES ${MVM_INCL})
@@ -101,4 +109,5 @@ message(STATUS "-- Project name                 : ${PROJECT_NAME}")
 message(STATUS "-- Project version              : ${PROJECT_VERSION}")
 message(STATUS "-- Build examples               : ${MVM_BUILD_EXAMPLES}")
 message(STATUS "-- Build tests                  : ${MVM_BUILD_TESTS}")
+message(STATUS "-- Build with traces            : ${MVM_BUILD_WITH_TRACES}")
 message(STATUS "-- Install dir                  : ${CMAKE_INSTALL_PREFIX}")
