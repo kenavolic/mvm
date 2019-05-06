@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mvm/instr_set.h"
-#include "mvm/types.h"
-#include "mvm/vm.h"
+#include "mvm/mvm.h"
 
 #include <fstream>
 #include <iostream>

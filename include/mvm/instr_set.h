@@ -107,7 +107,6 @@ public:
   template <typename T> struct code_value_repr {
     static constexpr std::size_t size = sizeof(T);
     using endian_type = typename instr_set_type::endian_type;
-    // override endianness
   };
 };
 

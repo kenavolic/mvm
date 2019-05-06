@@ -160,7 +160,9 @@ template <typename List> using remove_dup_t = typename remove_dup<List>::type;
 template <std::size_t I, typename List>
 struct at : at<I - 1, pop_front_t<List>> {};
 
-template <typename List> struct at<0, List> { using type = front_t<List>; };
+template <typename List> struct at<0, List> {
+  using type = robust_front_t<List>;
+};
 
 template <std::size_t I, typename List> using at_t = typename at<I, List>::type;
 

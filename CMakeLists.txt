@@ -8,6 +8,7 @@ project(mvm LANGUAGES CXX VERSION 0.2.0)
 option(MVM_BUILD_TESTS "Build tests" ON)
 option(MVM_BUILD_EXAMPLES "Build examples" ON)
 option(MVM_BUILD_WITH_TRACES "Build with traces" OFF)
+option(MVM_BUILD_WITH_FAST_INSTR "Build with fast instruction handling for best performance" ON)
 
 # General Config
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -34,6 +35,7 @@ set (MVM_CORE_INCL
     ${PROJECT_SOURCE_DIR}/include/mvm/interpreter.h
     ${PROJECT_SOURCE_DIR}/include/mvm/macros.h
     ${PROJECT_SOURCE_DIR}/include/mvm/meta.h
+    ${PROJECT_SOURCE_DIR}/include/mvm/mvm.h
     ${PROJECT_SOURCE_DIR}/include/mvm/program.h
     ${PROJECT_SOURCE_DIR}/include/mvm/status.h
     ${PROJECT_SOURCE_DIR}/include/mvm/traits.h
@@ -63,6 +65,10 @@ target_compile_features(${MVM_LIB} INTERFACE cxx_std_17)
 
 if (MVM_BUILD_WITH_TRACES)
     target_compile_definitions(${MVM_LIB} INTERFACE ENABLE_TRACES)
+endif()
+
+if (MVM_BUILD_WITH_FAST_INSTR)
+    target_compile_definitions(${MVM_LIB} INTERFACE FASTI)
 endif()
 
 if (MSVC)
@@ -110,4 +116,5 @@ message(STATUS "-- Project version              : ${PROJECT_VERSION}")
 message(STATUS "-- Build examples               : ${MVM_BUILD_EXAMPLES}")
 message(STATUS "-- Build tests                  : ${MVM_BUILD_TESTS}")
 message(STATUS "-- Build with traces            : ${MVM_BUILD_WITH_TRACES}")
+message(STATUS "-- Build with fast instr        : ${MVM_BUILD_WITH_FAST_INSTR}")
 message(STATUS "-- Install dir                  : ${CMAKE_INSTALL_PREFIX}")

@@ -20,7 +20,7 @@ matrix:
     ##########################################################################
 
     # Clang 7.0
-    - env: C_COMPILER=clang-7 CXX_COMPILER=clang++-7 BUILD_TYPE=Debug
+    - env: C_COMPILER=clang-7 CXX_COMPILER=clang++-7 BUILD_TYPE=Debug TRACES=ON FASTI=OFF
       addons: &clang70
         apt:
           packages:
@@ -30,7 +30,7 @@ matrix:
             - ubuntu-toolchain-r-test
             - llvm-toolchain-trusty-7
 
-    - env: C_COMPILER=clang-7 CXX_COMPILER=clang++-7 BUILD_TYPE=Release
+    - env: C_COMPILER=clang-7 CXX_COMPILER=clang++-7 BUILD_TYPE=Release TRACES=OFF FASTI=ON
       addons: *clang70
 
     ##########################################################################
@@ -38,14 +38,14 @@ matrix:
     ##########################################################################
 
     # GCC 7 c++17
-    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Debug
+    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Debug TRACES=ON FASTI=OFF
       addons: &gcc7
         apt:
           packages: g++-7
           sources:
             - ubuntu-toolchain-r-test
 
-    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Release
+    - env: C_COMPILER=gcc-7 CXX_COMPILER=g++-7 BUILD_TYPE=Release TRACES=OFF FASTI=ON
       addons: *gcc7
 
 install:
@@ -106,7 +106,7 @@ before_script:
   # have CMake to generate build files
   - cd "${TRAVIS_BUILD_DIR}"
   - mkdir build && cd build
-  - cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+  - cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DMVM_BUILD_WITH_TRACES=$TRACES -DMVM_BUILD_WITH_FAST_INSTR=$FASTI
 
 script:
   # build and run tests

@@ -45,7 +45,7 @@ Tests have been performed on the following platforms:
 ~~~
     > mkdir mvm_build
     > cd mvm_build
-    > cmake -DCMAKE_INSTALL_PREFIX=$path_to_mvm_install_dir -DMVM_BUILD_EXAMPLES=[ON|OFF] -DMVM_BUILD_TESTS=[ON|OFF] -DMVM_BUILD_WITH_TRACES=[ON|OFF] ../mvm
+    > cmake -DCMAKE_INSTALL_PREFIX=$path_to_mvm_install_dir -DMVM_BUILD_EXAMPLES=[ON|OFF] -DMVM_BUILD_TESTS=[ON|OFF] -DMVM_BUILD_WITH_TRACES=[ON|OFF] -DMVM_BUILD_WITH_FAST_INSTR=[ON|OFF] ../mvm
 ~~~
 
   * Compilation
@@ -60,7 +60,7 @@ Tests have been performed on the following platforms:
 
   * In your CMakeLists.txt, import mvm
 ~~~
-    find_package(mvm REQUIRED)
+    find_package(Mvm REQUIRED)
     ...
     target_link_libraries(my_proj mvm::mvm)
 ~~~
@@ -72,6 +72,10 @@ Tests have been performed on the following platforms:
 
 ## Define a new instruction set
 
-* The mini example shows a typical usage of this toy project
+* The mini example shows a typical usage of this toy project with an assembly script
+~~~
+    ./mini square_sum.mas
+~~
+
 * The exta example just shows how you can extend current concept
 and instances in your instruction set definition

@@ -120,6 +120,26 @@ assembler<Set, MetaCodeImpl>::assemble(std::string const &line) const {
   auto instr_index =
       std::distance(std::cbegin(instr_set_traits_type::instr_names), iname_it);
 
+#ifdef FASTI
+#define MVM_ASSEMBLE_I(n)                                                      \
+  case n: {                                                                    \
+    using instr_type = list::at_t<n, instr_set_desc_type>;                     \
+    if constexpr (!std::is_same_v<instr_type, nonsuch>) {                      \
+      bytecode = assemble_instr<instr_type>(                                   \
+          static_cast<uint8_t>(n),                                             \
+          (tokens.erase(std::begin(tokens)), tokens));                         \
+    } else {                                                                   \
+      throw mexcept("[-][mvm] invalid instruction opcode",                     \
+                    status_type::INVALID_INSTR_OPCODE);                        \
+    }                                                                          \
+  } break;
+  switch (instr_index) {
+    MVM_UNROLL_256(MVM_ASSEMBLE_I)
+  default:
+    throw mexcept("[-][mvm] instruction opcode overflow",
+                  status_type::INSTR_OPCODE_OVERFLOW);
+  }
+#else
   // visitor version suitable for small instruction sets
   instr_set_visitor<instr_set_desc_type>()(
       instr_index, [&tokens, &bytecode, instr_index, this](auto &&arg) {
@@ -128,6 +148,7 @@ assembler<Set, MetaCodeImpl>::assemble(std::string const &line) const {
         bytecode = this->assemble_instr<instr_type>(
             static_cast<uint8_t>(instr_index), tokens);
       });
+#endif
 
   return bytecode;
 }
@@ -172,13 +193,11 @@ template <typename I, std::size_t Index>
 void assembler<Set, MetaCodeImpl>::serial_operand(
     std::vector<uint8_t> &bytes, std::string const &token) const {
   using cc_type = typename I::bytecode_type;
-  auto ser =
-      m_serializer
-          .template serial<list::at_t<Index, cc_type>,
-                           instr_set_type::template code_value_repr<
-                               list::at_t<Index, cc_type>>::size,
-                           typename instr_set_type::template code_value_repr<
-                               list::at_t<Index, cc_type>>::endian_type>(token);
+  auto ser = m_serializer.template serial<
+      list::at_t<Index, cc_type>,
+      instr_set_traits_type::template type_size<list::at_t<Index, cc_type>>,
+      typename instr_set_traits_type::template type_endianness<
+          list::at_t<Index, cc_type>>>(token);
   std::copy(std::cbegin(ser), std::cend(ser), std::back_inserter(bytes));
 }
 } // namespace mvm

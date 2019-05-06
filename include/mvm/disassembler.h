@@ -24,6 +24,7 @@
 #include <type_traits>
 
 namespace mvm {
+
 ///
 /// @brief Basic disassembler
 ///
@@ -81,11 +82,32 @@ std::string disassembler<Set, MetaCodeImpl>::disassemble() {
   while (m_rebased_ip.assert_in_chunk()) {
     LOG_INFO("disassembler -> process instruction opcode "
              << static_cast<int>(*m_rebased_ip));
+
+#ifdef FASTI
+#define MVM_DISASSEMBLER_I(n)                                                  \
+  case n: {                                                                    \
+    using instr_type = list::at_t<n, instr_set_desc_type>;                     \
+    if constexpr (!std::is_same_v<instr_type, nonsuch>) {                      \
+      prog.append(this->disassemble_instr<instr_type>() + "\n");               \
+    } else {                                                                   \
+      throw mexcept("[-][mvm] invalid instruction opcode",                     \
+                    status_type::INVALID_INSTR_OPCODE);                        \
+    }                                                                          \
+  } break;
+
+    switch (*m_rebased_ip) {
+      MVM_UNROLL_256(MVM_DISASSEMBLER_I)
+    default:
+      throw mexcept("[-][mvm] instruction opcode overflow",
+                    status_type::INSTR_OPCODE_OVERFLOW);
+    }
+#else
     instr_set_visitor<instr_set_desc_type>()(
         *m_rebased_ip, [this, &prog](auto &&arg) {
           using instr_type = std::decay_t<decltype(arg)>;
           prog.append(this->disassemble_instr<instr_type>() + "\n");
         });
+#endif
     ++m_rebased_ip;
   }
 
@@ -120,11 +142,11 @@ template <typename Set, typename MetaCodeImpl>
 template <typename I, std::size_t Index>
 void disassembler<Set, MetaCodeImpl>::parse_operand(std::string &instr) {
   using cc_type = typename I::bytecode_type;
-  this->parse<list::at_t<Index, cc_type>,
-              instr_set_type::template code_value_repr<
-                  list::at_t<Index, cc_type>>::size,
-              typename instr_set_type::template code_value_repr<
-                  list::at_t<Index, cc_type>>::endian_type>(instr);
+  this->parse<
+      list::at_t<Index, cc_type>,
+      instr_set_traits_type::template type_size<list::at_t<Index, cc_type>>,
+      typename instr_set_traits_type::template type_endianness<
+          list::at_t<Index, cc_type>>>(instr);
 
   if (Index < (list::size_v<cc_type> - 1)) {
     instr.push_back(' ');

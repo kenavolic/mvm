@@ -18,6 +18,7 @@
 #include "mvm/bytecode_serializer.h"
 #include "mvm/disassembler.h"
 #include "mvm/except.h"
+#include "mvm/instr_set.h"
 #include "mvm/interpreter.h"
 #include "mvm/status.h"
 #include "mvm/value_stack.h"
@@ -50,7 +51,7 @@ public:
   /// @brief Interpret code chunk
   ///
   auto interpret(prog_chunk const &c) {
-    return translate([&]() { m_interpreter.interpret(std::move(c)); });
+    return translate([&]() { m_interpreter.interpret(c); });
   }
 
   ///
@@ -64,8 +65,7 @@ public:
   /// @brief Disassemble code chunk
   ///
   auto disassemble(prog_chunk const &c) {
-    return translate(
-        [&]() { return m_disassembler.disassemble(std::move(c)); });
+    return translate([&]() { return m_disassembler.disassemble(c); });
   }
 };
 } // namespace mvm

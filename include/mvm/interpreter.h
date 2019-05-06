@@ -155,9 +155,9 @@ private:
 
     return std::get<IS>(m_instances)
         .template parse<
-            DataType, instr_set_type::template code_value_repr<DataType>::size,
-            typename instr_set_type::template code_value_repr<
-                DataType>::endian_type>(ip + 1);
+            DataType, instr_set_traits_type::template type_size<DataType>,
+            typename instr_set_traits_type::template type_endianness<DataType>>(
+            ip + 1);
   }
 
   // Call instruction apply function
@@ -189,12 +189,32 @@ void interpreter<Set, InstancesList>::run() {
   while (m_rebased_ip.assert_in_chunk()) {
     LOG_INFO("interpreter -> process instruction opcode "
              << static_cast<int>(*m_rebased_ip));
+
+#ifdef FASTI
+#define MVM_INTERPRETER_I(n)                                                   \
+  case n: {                                                                    \
+    using instr_type = list::at_t<n, instr_set_desc_type>;                     \
+    if constexpr (!std::is_same_v<instr_type, nonsuch>) {                      \
+      this->interpret_instr<instr_type>();                                     \
+    } else {                                                                   \
+      throw mexcept("[-][mvm] invalid instruction opcode",                     \
+                    status_type::INVALID_INSTR_OPCODE);                        \
+    }                                                                          \
+  } break;
+    switch (*m_rebased_ip) {
+      MVM_UNROLL_256(MVM_INTERPRETER_I)
+    default:
+      throw mexcept("[-][mvm] instruction opcode overflow",
+                    status_type::INSTR_OPCODE_OVERFLOW);
+    }
+#else
     instr_set_visitor<instr_set_desc_type>()(*m_rebased_ip, [this](auto &&arg) {
       using instr_type = std::decay_t<decltype(arg)>;
       LOG_INFO("interpreter -> process instruction "
                << typestring::char_seq<typename instr_type::name_type>::value);
       this->interpret_instr<instr_type>();
     });
+#endif
   }
 }
 
