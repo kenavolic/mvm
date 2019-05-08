@@ -2,16 +2,19 @@
 
 [![Build Status](https://travis-ci.org/kenavolic/mvm.svg?branch=master)](https://travis-ci.org/kenavolic/mvm)
 
-Mvm (meta virtual machine) is a toy c++ 17 headers-only library to generate simple stack-based virtual machine from static
-description. The descriptive model mimics boost msm one with a clear separation between front-end
+Mvm (meta virtual machine) is a c++ 17 headers-only library that
+supports the construction of interpretive systems (interpreter, assembler, disassembler) by generating the code 
+for executing and dealing with stack-based virtual machine instructions from static descriptions of the instructions.
+
+It can be seen as a full compile-time vmgen at the cost of performance and some flexibility!
+
+The descriptive model mimics boost msm one with a clear separation between front-end
 and back-end.
 
 # Current State
 
-As it has no real purpose, the project is not under active development.
-
-If you find any use to it in real world or if it could be useful with some updates, give me a shout 
-and I would be pleased to work on this project when I've got time.
+As it has no real applications for now, the project is very opened to any 
+feedbacks that could make him useful in the future.
 
 Feel free to browse the TODO list to view a possible list of improvements.
 
@@ -24,7 +27,7 @@ Feel free to browse the TODO list to view a possible list of improvements.
 # Limitations
 
  * Instruction set of 256 instructions max
- * No advances language feature (call stack, garbage collection)
+ * No advanced language feature (call stack, garbage collection)
  * No vm high-performance feature (tos, caching, super instr)
 
 # Supported Platforms
