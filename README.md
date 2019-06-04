@@ -14,7 +14,7 @@ and back-end.
 # Current State
 
 As it has no real applications for now, the project is very opened to any 
-feedbacks that could make him useful in the future.
+feedbacks that could make it useful in the future.
 
 Feel free to browse the TODO list to view a possible list of improvements.
 
